@@ -1,0 +1,543 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class GamePole : MonoBehaviour
+{
+    public System.Random rnd = new System.Random();
+
+    //главный скрипт игры
+    public GameObject gameMain;
+    //главный скрипт игры
+
+
+    //инициализация базовых (начальных) букв, номеров, полей и статусов
+    public GameObject baseLetters, baseNumbers, basePole, baseStatus;
+
+    //карта, на которую будут копироваться данные
+    public GameObject mapDestination;
+
+    //инициализация размера поля (10x10)
+    int poleSize = 10;
+
+    //переменная, позволяющая скрывать корабли от соперника
+    public bool hideShips = false;
+
+    //инициализация списков букв, номеров и полей
+    GameObject[] letters;
+    GameObject[] numbers;
+    public GameObject[,] pole;
+
+    //инициализация переменных для времени вывода статуса стрельбы на экран (100 мс), deltaTime - подсчет прошедшего времени
+    int time = 100; 
+    int deltaTime = 0;
+
+    //хранение координат палубы
+    public struct CheckCoord
+    {
+        public int X, Y;
+    }
+
+    //хранение координат корабля
+    public struct Ship
+    {
+        public CheckCoord[] ShipCoord;
+    }
+
+    //список кораблей
+    public List<Ship> shipList = new List<Ship>();
+
+    //кол-во кораблей на поле (4 однопалубника, 3 двухпалубника, 2 трехпалубника, 4 четырехпалубник)
+    int[] shipsOnPole = { 0, 4, 3, 2, 1};
+
+    //функция копирования поля игры
+    public void CopyPole()
+    {
+        if (mapDestination != null)
+        {
+            //пребор всего поля
+            //цикл отрисовки поля по x
+            for (int xCoord = 0; xCoord < poleSize; xCoord++)
+            {
+                //цикл отрисовки поля по y
+                for (int yCoord = 0; yCoord < poleSize; yCoord++)
+                {
+                    //записываем данные из нашего поля в другое поле
+                    mapDestination.GetComponent<GamePole>().pole[xCoord, yCoord].GetComponent<ImageBehaviour>().index = pole[xCoord, yCoord].GetComponent<ImageBehaviour>().index;
+                }
+            }
+
+            //чистка списка от мусора
+            mapDestination.GetComponent<GamePole>().shipList.Clear();
+
+            //запись сгенерированных кораблей в список
+            mapDestination.GetComponent<GamePole>().shipList.AddRange(shipList);
+        }
+    }
+
+    //возврат true, если не все корабли были выставлены, false - корабли закончились
+    bool ShipsCount()
+    {
+        //подсчет кораблей
+        int curCount = 0;
+
+        //сумма всех палуб
+        foreach (int ship in shipsOnPole) curCount += ship;
+
+        //сумма больше нуля - остались корабли для выставления
+        if (curCount != 0) return true;
+
+        //сумма нулевая - корабли закончились для выставления на поле
+        return false;
+    }
+
+    //очистка поля
+    public void ClearPole()
+    {
+        //возвращение кораблей в массив расстаноки
+        shipsOnPole = new int[] { 0, 4, 3, 2, 1 };
+
+        //очистка списка кораблей
+        shipList.Clear();
+
+        //цикл для перемещения по полю
+        for (int x = 0; x < poleSize; x++)
+        {
+            for (int y = 0; y < poleSize; y++)
+            {
+                //index = 0 - базовый элемент поля
+                pole[x, y].GetComponent<ImageBehaviour>().index = 0;
+            }
+        }
+    }
+
+    //функция автоматической расстановки кораблей на поле
+    public void EnterShipsRandom()
+    {
+        //очистка поля
+        ClearPole();
+
+        int choiceShip = 4;
+
+        //координаты расстановки
+        int x, y;
+
+        //положение
+        int offset;
+
+        while (ShipsCount())
+        {
+            //выбор координат расстановки с помощью ДСЧ
+            x = rnd.Next(0, 10);
+            y = rnd.Next(0, 10);
+
+            //0 - вертикальное положение, 1 - горизонтальное положение
+            offset = rnd.Next(0, 2);
+
+            if (AddDeck(choiceShip, offset, x, y))
+            {
+                //если удалось поставить корабль, то удаляем его из массива расстановки
+                shipsOnPole[choiceShip]--;
+
+                //если кораблей с определенным кол-вом палуб не осталось, то переходим на корабли с мешьшим кол-вом палуб
+                if (shipsOnPole[choiceShip] == 0)
+                {
+                    choiceShip--;
+                }
+            }
+        }
+    }
+
+    //функция генерации игрового поля
+    void MakePole()
+    {
+        //поиск начальной позиции, исходя из положения нулевого поля
+        Vector3 StartPosition = transform.position;
+
+        //расчет координат для создания цифро-буквенных обозначений клеток поля (справа от нулевого поля пишутся буквы, вниз - цифры)
+        float coordX = StartPosition.x + 1;
+        float coordY = StartPosition.y - 1;
+
+        //создание списков букв и номеров (размер = размеру поля = 10)
+        letters = new GameObject[poleSize];
+        numbers = new GameObject[poleSize];
+
+        //заполнение цифро-буквенных обозначений поля
+        for (int i = 0; i < poleSize; i++)
+        {
+            letters[i] = Instantiate(baseLetters);
+
+            //изменение позиции для буквы (изменение по горизонтали)
+            letters[i].transform.position = new Vector3(coordX, StartPosition.y, StartPosition.z);
+
+            //изменение буквы в списке в зависимости от индекса
+            letters[i].GetComponent<ImageBehaviour>().index = i;
+
+            //увеличение горизонтальной координаты
+            coordX++;
+
+            numbers[i] = Instantiate(baseNumbers);
+
+            //изменение позиции для номера (изменение по вертикали)
+            numbers[i].transform.position = new Vector3(StartPosition.x, coordY, StartPosition.z);
+
+            //изменение номера в списке в зависимости от индекса
+            numbers[i].GetComponent<ImageBehaviour>().index = i;
+
+            //уменьшение вертикальной координаты
+            coordY--;
+        }
+
+        //возвращение в начальную позицию печати
+        coordX = StartPosition.x + 1;
+        coordY = StartPosition.y - 1;
+
+        //создание двумерного массива поля (размер = 10x10)
+        pole = new GameObject[poleSize, poleSize];
+
+        //заполнение игрового поля базовыми элементами поля
+        for (int x = 0; x < poleSize; x++)
+        {
+            for (int y = 0; y < poleSize; y++)
+            {
+                pole[x, y] = Instantiate(basePole);
+
+                //index = 0 - базовый элемент поля
+                pole[x, y].GetComponent<ImageBehaviour>().index = 0;
+
+                //скрытие кораблей
+                pole[x, y].GetComponent<ImageBehaviour>().hideImage = hideShips;
+
+                //изменение позиции для поля (по горизонтали и вертикали одновременно)
+                pole[x, y].transform.position = new Vector3(coordX, coordY, StartPosition.z);
+
+                //если поле игрока, то корабли размещаются не автоматически
+                if (hideShips)
+                    //передача информации о том, кто владеет данной клеткой поля
+                    pole[x, y].GetComponent<ClickPole>().clickOwner = this.gameObject;
+
+                //передача координат данной клетки поля
+                pole[x, y].GetComponent<ClickPole>().clickPosX = x;
+                pole[x, y].GetComponent<ClickPole>().clickPosY = y;
+
+                //уменьшение вертикальной координаты
+                coordY--;
+            }
+
+            //возврат к изначальной вертикальной позиции и увеличение горизонтальной позиции (переход на новый столбец)
+            coordY = StartPosition.y - 1;
+
+            //увеличение горизонтальной координаты
+            coordX++;
+        }
+    }
+
+    //проверка на пустоту квадрата вокруг клетки для добаления палубы
+    bool CheckAddDeck(int x, int y)
+    {
+        if ((x >= 0) && (y >= 0) && (x < 10) && (y < 10))
+        {
+            //инициализация списков для проверки значений вокруг данной клетки (1 клетку окружают в большем случае 8 других клеток)
+            int[] checkX = new int[9], checkY = new int[9];
+
+            //расчет координат для проверки
+
+            checkX[0] = x - 1; checkY[0] = y + 1; //левая верхняя координата
+            checkX[1] = x; checkY[1] = y + 1;     //верняя координата
+            checkX[2] = x + 1; checkY[2] = y + 1; //правая верхняя координата
+
+            checkX[3] = x - 1; checkY[3] = y;     //левая центральная координата
+            checkX[4] = x; checkY[4] = y;         //изначальная координата
+            checkX[5] = x + 1; checkY[5] = y;     //правая центральная координата
+
+            checkX[6] = x - 1; checkY[6] = y - 1; //левая нижняя координата
+            checkX[7] = x; checkY[7] = y - 1;     //нижняя координата
+            checkX[8] = x + 1; checkY[8] = y - 1; //правая нижняя координата
+
+            //расчет координат для проверки
+
+            //проверка координат клеток для нахождения не попадающих в поле клеток и непустых клеток
+            for (int j = 0; j < 9; j++)
+            {
+                if ((checkX[j] >= 0) && (checkY[j] >= 0) && (checkX[j] < 10) && (checkY[j] < 10))
+                {
+                    //если клетка занята, то ее не рассматриваем
+                    if (pole[checkX[j], checkY[j]].GetComponent<ImageBehaviour>().index != 0) return false;
+                }
+            }
+
+            //возрат информации о возможности установки корабля
+            return true;
+        }
+
+        //возврат информации о невозможности установки корабля
+        return false;
+    }
+
+    CheckCoord[] CheckAddShip(int deckNumber, int offsetX, int offsetY, int x, int y)
+    {
+        CheckCoord[] resultCoord = new CheckCoord[deckNumber];
+
+        for (int deck = 0; deck < deckNumber; deck++)
+        {
+            if (CheckAddDeck(x, y))
+            {
+                resultCoord[deck].X = x;
+                resultCoord[deck].Y = y;
+            }
+            else return null;
+
+            x += offsetX;
+            y += offsetY;
+        }
+
+        return resultCoord;
+    }
+
+    CheckCoord[] CheckAddShipDef(int deckNumber, int offset, int x, int y)
+    {
+        CheckCoord[] resultCoord = new CheckCoord[deckNumber];
+
+        if (CheckAddDeck(x, y))
+        {
+            switch (offset)
+            {
+                case 0:
+                    resultCoord = CheckAddShip(deckNumber, 1, 0, x, y);
+                    if (resultCoord == null) resultCoord = CheckAddShip(deckNumber, -1, 0, x, y);
+                    break;
+
+                case 1:
+                    resultCoord = CheckAddShip(deckNumber, 0, 1, x, y);
+                    if (resultCoord == null) resultCoord = CheckAddShip(deckNumber, 0, -1, x, y);
+                    break;
+            }
+
+            return resultCoord;
+        }
+
+        return null;
+    }
+
+    //функция, добавляющая корабль на поле
+    bool AddDeck(int deckNumber, int offset, int x, int y)
+    {
+        //получение координат для установки корабля
+        CheckCoord[] newShipCoord = CheckAddShipDef(deckNumber, offset, x, y);
+
+        //если получилось вписать корабль, то устанавливаем его
+        if (newShipCoord != null)
+        {
+            //если в списке будут координаты, то ставим его в указанное место
+            foreach (CheckCoord C in newShipCoord)
+            {
+                pole[C.X, C.Y].GetComponent<ImageBehaviour>().index = 1;
+            }
+
+            Ship deck;
+
+            //сохранение координат
+            deck.ShipCoord = newShipCoord;
+
+            //сохранение корабля в список
+            shipList.Add(deck);
+
+            //сообщаем о выставлении корабля на поле
+            return true;
+        }
+
+        //сообщаем, что установить корабль не удалось
+        return false;
+    }
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        MakePole();
+        if (hideShips) EnterShipsRandom();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        //увеличение прошедшего времени
+        deltaTime++;
+
+        //проверка на то, что прошло больше времени, чем задано на вывод статуса
+        if (deltaTime > time)
+        {
+            //обнуление статуса, если он был выведен на экран + обнуление прошедшего времени
+            if (baseStatus != null)
+            {
+                baseStatus.GetComponent<ImageBehaviour>().index = 0;
+                deltaTime = 0;
+            }
+        }  
+    }
+
+    //функция, сообщающая о сделанном клике
+    public void ClickReport(int x, int y)
+    {
+        if (gameMain != null) gameMain.GetComponent<MainGame>().UserClick(x, y);
+    }
+
+    //получение индекса клетки поля по координатам
+    public int GetIndexBlock(int x, int y)
+    {
+        return pole[x, y].GetComponent<ImageBehaviour>().index;
+    }
+
+    //функция обстреливания
+    public bool Shoot(int x, int y)
+    {
+        //обнуление статуса
+        if (baseStatus != null) baseStatus.GetComponent<ImageBehaviour>().index = 0;
+
+        //получение коордиат нажатия
+        int poleSelect = pole[x, y].GetComponent<ImageBehaviour>().index;
+
+        //инициализация переменной результата стрельбы
+        bool resultShooting = false;
+
+        //проверка нажимаемой клетки на наличие корабля или моря
+        switch (poleSelect)
+        {
+            //промах
+            case 0:
+                //index = 2 - элемент поля с промахом
+                pole[x, y].GetComponent<ImageBehaviour>().index = 2;
+
+                //присваивание неудачной стрельбы
+                resultShooting = false;
+
+                //сообщение о промахе
+                if (baseStatus != null) baseStatus.GetComponent<ImageBehaviour>().index = 3;
+                break;
+
+            //попадание
+            case 1:
+                //index = 3 - элемент поля с ранением
+                pole[x, y].GetComponent<ImageBehaviour>().index = 3;
+
+                //присваивание удачной стрельбы
+                resultShooting = true;
+
+                //условие для сообщений об уничтожении корабля (главная ветка) и о ранении (ветка else)
+                if (TestShoot(x, y))
+                {
+                    //сообщение об уничтожении корабля
+                    if (baseStatus != null) baseStatus.GetComponent<ImageBehaviour>().index = 1;
+                }
+                else
+                {
+                    //сообщение о ранении корабля
+                    if (baseStatus != null) baseStatus.GetComponent<ImageBehaviour>().index = 2;
+                }
+                break;
+        }
+        //возврат результата стрельбы
+        return resultShooting;
+    }
+
+    //функция проверки попадания в корабль
+    bool TestShoot(int x, int y)
+    {
+        //инициализация переменной результата попадания
+        bool resultHitting = false;
+
+        //перебор кораблей для проверки попадания
+        foreach (Ship test in shipList)
+        {
+            //перебор палуб для проверки попадания
+            foreach (CheckCoord deck in test.ShipCoord)
+            {
+                //сравнение координат выстрела с координатами палубы
+                if ((deck.X == x) && (deck.Y == y))
+                {
+                    //инициализация переменной кол-ва попаданий по кораблю
+                    int countKill = 0;
+
+                    //если есть хоть одно попадание, то проверяем общее кол-во попаданий
+                    foreach (CheckCoord killDeck in test.ShipCoord)
+                    {
+                        //проверка поля, записанного в данные координаты
+                        int testBlock = pole[killDeck.X, killDeck.Y].GetComponent<ImageBehaviour>().index;
+
+                        //если значение = 3, то нужно подсчитать ранения
+                        if (testBlock == 3) countKill++;
+                    }
+
+                    //уничтожение корабля по кол-ву попаданий
+                    if (countKill == test.ShipCoord.Length)
+                    {
+                        //true - корабль убит
+                        resultHitting = true;
+
+                        #region закрашивание клеток вокруг уюитого корабля
+                        for (int i = 0; i < test.ShipCoord.Length; i++)
+                        {
+                            if (test.ShipCoord[i].X - 1 >= 0 && test.ShipCoord[i].Y + 1 >= 0 && test.ShipCoord[i].X - 1 < 10 && test.ShipCoord[i].Y + 1 < 10 && pole[test.ShipCoord[i].X - 1, test.ShipCoord[i].Y + 1].GetComponent<ImageBehaviour>().index == 0)
+                                pole[test.ShipCoord[i].X - 1, test.ShipCoord[i].Y + 1].GetComponent<ImageBehaviour>().index = 2;
+
+                            if (test.ShipCoord[i].X - 1 >= 0 && test.ShipCoord[i].Y >= 0 && test.ShipCoord[i].X - 1 < 10 && test.ShipCoord[i].Y < 10 && pole[test.ShipCoord[i].X - 1, test.ShipCoord[i].Y].GetComponent<ImageBehaviour>().index == 0)
+                                pole[test.ShipCoord[i].X - 1, test.ShipCoord[i].Y].GetComponent<ImageBehaviour>().index = 2;
+
+                            if (test.ShipCoord[i].X - 1 >= 0 && test.ShipCoord[i].Y - 1 >= 0 && test.ShipCoord[i].X - 1 < 10 && test.ShipCoord[i].Y - 1 < 10 && pole[test.ShipCoord[i].X - 1, test.ShipCoord[i].Y - 1].GetComponent<ImageBehaviour>().index == 0)
+                                pole[test.ShipCoord[i].X - 1, test.ShipCoord[i].Y - 1].GetComponent<ImageBehaviour>().index = 2;
+
+                            if (test.ShipCoord[i].X + 1 >= 0 && test.ShipCoord[i].Y + 1 >= 0 && test.ShipCoord[i].X + 1 < 10 && test.ShipCoord[i].Y + 1 < 10 && pole[test.ShipCoord[i].X + 1, test.ShipCoord[i].Y + 1].GetComponent<ImageBehaviour>().index == 0)
+                                pole[test.ShipCoord[i].X + 1, test.ShipCoord[i].Y + 1].GetComponent<ImageBehaviour>().index = 2;
+
+                            if (test.ShipCoord[i].X + 1 >= 0 && test.ShipCoord[i].Y >= 0 && test.ShipCoord[i].X + 1 < 10 && test.ShipCoord[i].Y < 10 && pole[test.ShipCoord[i].X + 1, test.ShipCoord[i].Y].GetComponent<ImageBehaviour>().index == 0)
+                                pole[test.ShipCoord[i].X + 1, test.ShipCoord[i].Y].GetComponent<ImageBehaviour>().index = 2;
+
+                            if (test.ShipCoord[i].X + 1 >= 0 && test.ShipCoord[i].Y - 1 >= 0 && test.ShipCoord[i].X + 1 < 10 && test.ShipCoord[i].Y - 1 < 10 && pole[test.ShipCoord[i].X + 1, test.ShipCoord[i].Y - 1].GetComponent<ImageBehaviour>().index == 0)
+                                pole[test.ShipCoord[i].X + 1, test.ShipCoord[i].Y - 1].GetComponent<ImageBehaviour>().index = 2;
+
+                            if (test.ShipCoord[i].X >= 0 && test.ShipCoord[i].Y + 1 >= 0 && test.ShipCoord[i].X < 10 && test.ShipCoord[i].Y + 1 < 10 && pole[test.ShipCoord[i].X, test.ShipCoord[i].Y + 1].GetComponent<ImageBehaviour>().index == 0)
+                                pole[test.ShipCoord[i].X, test.ShipCoord[i].Y + 1].GetComponent<ImageBehaviour>().index = 2;
+
+                            if (test.ShipCoord[i].X >= 0 && test.ShipCoord[i].Y - 1 >= 0 && test.ShipCoord[i].X < 10 && test.ShipCoord[i].Y - 1 < 10 && pole[test.ShipCoord[i].X, test.ShipCoord[i].Y - 1].GetComponent<ImageBehaviour>().index == 0)
+                                pole[test.ShipCoord[i].X, test.ShipCoord[i].Y - 1].GetComponent<ImageBehaviour>().index = 2;
+                        }
+                        #endregion
+                    }
+                    else
+                    {
+                        //false - корабль еще не убит
+                        resultHitting = false;
+                    }
+
+                    //возврат результата
+                    return resultHitting;
+                }
+            }
+        }
+        //возврат результата
+        return resultHitting;
+    }
+
+    //функция для проверки кол-ва неубитых кораблей
+    public int AliveShips()
+    {
+        //инициализация счетчика живых кораблей
+        int countAlive = 0;
+
+        //перебор кораблей
+        foreach (Ship test in shipList)
+        {
+            //перебор палуб
+            foreach (CheckCoord deck in test.ShipCoord)
+            {
+                //просмотр состояния данной палубы
+                int testBlock = pole[deck.X, deck.Y].GetComponent<ImageBehaviour>().index;
+
+                //testBlock = 1 - живая палуба
+                if (testBlock == 1) countAlive++;
+            }
+        }
+
+        //возврат найденных нераненных кораблей
+        return countAlive;
+    }
+}

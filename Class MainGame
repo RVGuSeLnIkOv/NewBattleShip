@@ -1,0 +1,348 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class MainGame : MonoBehaviour
+{
+    public System.Random rnd = new System.Random();
+
+    //инициализация режима игры
+    public int gameMode = 0;
+
+    //инициализация поля игрока и поля оппонента, а также поля игрока во время режима боя
+    public GameObject playerPole, opponentPole, playerPoleBattle;
+
+    //переменная, определяющая кто ходит в данный момент (true - игрок, false - ПК
+    bool whoseMove = true;
+
+    //функция для формирования меню
+    void OnGUI()
+    {
+        //получение координат по X
+        float centerScreenX = Screen.width / 2;
+
+        //получение координат по Y
+        float centerScreenY = Screen.height / 2;
+
+        //инициализация кнопок и камеры
+        Rect locButton;
+        Camera cam;
+
+        //получение игрового поля
+        GamePole playerPoleControl = playerPole.GetComponent<GamePole>();
+
+        switch (gameMode)
+        {
+            //меню игры
+            case 0:
+                //получение камеры
+                cam = GetComponent<Camera>();
+
+                //задание размера камеры
+                cam.orthographicSize = 8;
+
+                //задание координат для камеры
+                this.transform.position = new Vector3(0, 0, -10);
+
+                //создание прямоугольника для заднего фона
+                locButton = new Rect(new Vector2(centerScreenX - 150, centerScreenY - 50), new Vector2(300, 220));
+
+                GUI.Box(locButton, "");
+
+                //добавление надписи
+                locButton = new Rect(new Vector2(centerScreenX - 40, centerScreenY - 40), new Vector2(200, 30));
+                GUI.Label(locButton, "МЕНЮ ИГРЫ");
+
+                //добавление кнопки для старта игры
+                locButton = new Rect(new Vector2(centerScreenX - 100, centerScreenY), new Vector2(200, 30));
+
+                //если была нажата кнопка "СТАРТ", то меняем режим игры на 1
+                if (GUI.Button(locButton, "СТАРТ"))
+                    gameMode = 1;
+
+                //добавление кнопки для старта игры
+                locButton = new Rect(new Vector2(centerScreenX - 100, centerScreenY + 40), new Vector2(200, 30));
+
+                //если была нажата кнопка "ИГРА ВДВОЕМ", то меняем режим игры на 6
+                if (GUI.Button(locButton, "ИГРА ВДВОЕМ"))
+                    gameMode = 6;
+
+                //добавление кнопки для старта игры
+                locButton = new Rect(new Vector2(centerScreenX - 100, centerScreenY + 80), new Vector2(200, 30));
+
+                //если была нажата кнопка "инструкция", то меняем режим игры на 2
+                if (GUI.Button(locButton, "инструкция"))
+                    gameMode = 2;
+
+                //добавление кнопки для выхода из игры
+                locButton = new Rect(new Vector2(centerScreenX - 100, centerScreenY + 120), new Vector2(200, 30));
+
+                //если была нажата кнопка "выход", то выходим из игры
+                if (GUI.Button(locButton, "выход"))
+                    Application.Quit();
+
+                break;
+
+            //расстановка кораблей на поле
+            case 1:
+                //получение камеры
+                cam = GetComponent<Camera>();
+
+                //задание размера камеры
+                cam.orthographicSize = 8;
+
+                //задание координат для камеры
+                this.transform.position = new Vector3(30, 0, -10);
+
+                //создание прямоугольника для заднего фона
+                locButton = new Rect(new Vector2(centerScreenX - 150, 0), new Vector2(300, 175));
+
+                GUI.Box(locButton, "");
+
+                //добавление надписи
+                locButton = new Rect(new Vector2(centerScreenX - 85, 10), new Vector2(200, 30));
+                GUI.Label(locButton, "РАССТАНОВКА КОРАБЛЕЙ");
+
+                //добавление кнопки для выхода из игры
+                locButton = new Rect(new Vector2(centerScreenX - 100, 50), new Vector2(200, 30));
+
+                //если была нажата кнопка "Вернуться в меню", то выходим в главное меню
+                if (GUI.Button(locButton, "Вернуться в меню"))
+                {
+                    playerPoleControl.ClearPole();
+                    gameMode = 0;
+                }
+
+                //добавление надписи
+                locButton = new Rect(new Vector2(centerScreenX - 100, 90), new Vector2(200, 30));
+
+                //если была нажата кнопка "Разместить флот", то выходим в главное меню
+                if (GUI.Button(locButton, "Разместить флот"))
+                {
+                    playerPoleControl.EnterShipsRandom();
+                }
+
+                //если все корабли расставлены
+                if (playerPoleControl.AliveShips() == 20)
+                {
+                    locButton = new Rect(new Vector2(centerScreenX - 100, 130), new Vector2(200, 30));
+
+                    //если была нажата кнопка "В БОй", то запускаем бой и переносим сгенерированное поле на игровое поле
+                    if (GUI.Button(locButton, "В БОЙ"))
+                    {
+                        gameMode = 3;
+                        playerPole.GetComponent<GamePole>().CopyPole();
+                        opponentPole.GetComponent<GamePole>().EnterShipsRandom();
+                    } 
+                }
+
+                break;
+
+            //инструкция
+            case 2:
+                //получение камеры
+                cam = GetComponent<Camera>();
+
+                //задание размера камеры
+                cam.orthographicSize = 13;
+
+                //задание координат для камеры
+                this.transform.position = new Vector3(0, 30, -10);
+
+                //добавление кнопки для выхода из игры
+                locButton = new Rect(new Vector2(centerScreenX, 557), new Vector2(200, 25));
+
+                //если была нажата кнопка "Вернуться в меню", то выходим в главное меню
+                if (GUI.Button(locButton, "Вернуться в меню"))
+                {
+                    playerPoleControl.ClearPole();
+                    gameMode = 0;
+                }
+
+                break;
+
+            //бой
+            case 3:
+                //получение камеры
+                cam = GetComponent<Camera>();
+
+                //задание размера камеры
+                cam.orthographicSize = 13;
+
+                //задание координат для камеры
+                this.transform.position = new Vector3(30, -30, -10);
+
+                break;
+
+            //поражение
+            case 4:
+                //получение камеры
+                cam = GetComponent<Camera>();
+
+                //задание размера камеры
+                cam.orthographicSize = 8;
+
+                //задание координат для камеры
+                this.transform.position = new Vector3(60, 0, -10);
+
+                //добавление кнопки для выхода из игры
+                locButton = new Rect(new Vector2(centerScreenX - 100, 150), new Vector2(200, 30));
+
+                //если была нажата кнопка "Вернуться в меню", то выходим в главное меню
+                if (GUI.Button(locButton, "Вернуться в меню"))
+                {
+                    playerPoleControl.ClearPole();
+                    gameMode = 0;
+                }
+
+                break;
+
+            //победа
+            case 5:
+                //получение камеры
+                cam = GetComponent<Camera>();
+
+                //задание размера камеры
+                cam.orthographicSize = 8;
+
+                //задание координат для камеры
+                this.transform.position = new Vector3(90, 0, -10);
+
+                //добавление кнопки для выхода из игры
+                locButton = new Rect(new Vector2(centerScreenX - 100, 150), new Vector2(200, 30));
+
+                //если была нажата кнопка "Вернуться в меню", то выходим в главное меню
+                if (GUI.Button(locButton, "Вернуться в меню"))
+                {
+                    playerPoleControl.ClearPole();
+                    gameMode = 0;
+                }
+
+                break;
+        }
+    }
+
+    //сообщение о блоке, на который было совершено нажатие
+    public void UserClick(int x, int y)
+    {
+        //если не выиграл и ходит игрок, то совершаем ход
+        if (whoseMove && opponentPole.GetComponent<GamePole>().GetIndexBlock(x, y) < 2)
+        {
+            //ход игрока, если он попал, то функция вернет истину и ход останется за игроком; при промахе ход переходит ПК
+            whoseMove = opponentPole.GetComponent<GamePole>().Shoot(x, y);
+        }
+    }
+
+    //поиск палуб для игры искуственного интеллекта
+    GamePole.CheckCoord Homming()
+    {
+        GamePole.CheckCoord xy;
+
+        xy.X = -1;
+        xy.Y = -1;
+
+        //перебор кораблей
+        foreach (GamePole.Ship test in playerPoleBattle.GetComponent<GamePole>().shipList)
+        {
+            //перебор палуб на проверку попадания
+            foreach (GamePole.CheckCoord deck in test.ShipCoord)
+            {
+                //просмотр индекса картинки, отображающейся на палубе
+                int num = playerPoleBattle.GetComponent<GamePole>().GetIndexBlock(deck.X, deck.Y);
+                if (num == 1)
+                {
+                    //возврат координат годной для попадания палубы
+                    return deck;
+                }
+            }
+        }
+
+        //если все палубы были перебраны, но не были найдены подходящие, то вернем -1; -1
+        return xy;
+    }
+
+    int shootCount = 0;
+
+
+    //искусственный интеллект для игры
+    void ArtificialIntelligence()
+    {
+        //проверка на возможность хода
+        if (!whoseMove)
+        {
+            //если кораблей больше половины, то стреляем 
+
+            //получение первичных координат стрельбы
+            int xShoot = rnd.Next(0, 10);
+            int yShoot = rnd.Next(0, 10);
+
+            while (playerPoleBattle.GetComponent<GamePole>().GetIndexBlock(xShoot, yShoot) > 1)
+            {
+                //получение координат стрельбы в цикле для того, чтобы попасть в необстреленные клетки
+                xShoot = rnd.Next(0, 10);
+                yShoot = rnd.Next(0, 10);
+            }
+
+            int opponentShips = opponentPole.GetComponent<GamePole>().AliveShips();
+
+            if (opponentShips < 5)
+            {
+                if (shootCount == 0)
+                {
+                    //обстрел палубы
+                    GamePole.CheckCoord xy = Homming();
+
+                    if ((xy.X >= 0) && (xy.Y >= 0))
+                    {
+                        xShoot = xy.X;
+                        yShoot = xy.Y;
+                    }
+
+                    shootCount++;
+                }
+
+                else
+                {
+                    shootCount = 0;
+                }
+            }
+
+            //проверка на попадание (если попали - оставляем ход за собой, иначе - отдаем ход игроку
+            whoseMove = !playerPoleBattle.GetComponent<GamePole>().Shoot(xShoot, yShoot);
+        }
+    }
+
+    //проверка выигрыша и проигрыша
+    void TestWhoWin()
+    {
+        //кол-во живых кораблей у игроков
+        int playerShips = playerPoleBattle.GetComponent<GamePole>().AliveShips();
+        int opponentShips = opponentPole.GetComponent<GamePole>().AliveShips();
+
+        //игрок проиграл, режим проигрыша
+        if (playerShips == 0) gameMode = 4;
+
+        //оппонент проиграл, режим победы
+        if (opponentShips == 0) gameMode = 5;
+    }
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        //если режим боя, то будем проверять выигрыш
+        if (gameMode == 3)
+        {
+            //проверка выигрыша
+            TestWhoWin();
+
+            //если ход ПК, то ходим
+            ArtificialIntelligence();
+        }
+    }
+}

@@ -1,0 +1,64 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Health : MonoBehaviour
+{
+    //хранение внешнего вида ячеек поля
+    public GameObject healthImage;
+
+    //кол-во живых палуб
+    public GameObject gamePole;
+
+    //панель отображения кол-ва живых палуб на поле
+    GameObject[] healthBar = new GameObject[20];
+
+    //создание панели
+    void CreateHealthBar()
+    {
+        //получение точки, в которой будет создано поле
+        Vector3 GetPositionScreen = this.transform.position;
+
+        //смещение относительно точки создания поля
+        float dx = 0.5f;
+
+        for (int i = 0; i < 20; i++)
+        {
+            //создание первой ячейки панели
+            healthBar[i] = Instantiate(healthImage) as GameObject;
+
+            //задание позиции для первой ячейки
+            healthBar[i].transform.position = GetPositionScreen;
+
+            //смещение позиции на указанное расстояние
+            GetPositionScreen.x += dx;
+        }
+    }
+
+    //функция обновления понели здоровья
+    void RefreshBar()
+    {
+        int alive = 0;
+
+        //обнуление всего здоровья
+        for (int i = 0; i < 20; i++) healthBar[i].GetComponent<ImageBehaviour>().index = 0;
+
+        //получение кол-ва здоровья у поля
+        if (gamePole != null) alive = gamePole.GetComponent<GamePole>().AliveShips();
+
+        //запись кол-ва здоровья в панель
+        for (int i = 0; i < alive; i++) healthBar[i].GetComponent<ImageBehaviour>().index = 1;
+    }
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        if (healthImage != null) CreateHealthBar();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if ((gamePole != null) && (healthImage != null)) RefreshBar();
+    }
+}

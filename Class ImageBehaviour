@@ -1,0 +1,39 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class ImageBehaviour : MonoBehaviour
+{
+    //инициализация списка изображений
+    public Sprite[] imgs;
+
+    //инициализация индекса, который будет вызывать нужное изображение из списка
+    public int index;
+
+    //переменная скрытия изображения
+    public bool hideImage = false;
+
+    //функция вставки картинки по заданному индексу
+    void FillImgs()
+    {
+        if (index < imgs.Length)
+        {
+            if ((hideImage) && (index == 1)) GetComponent<SpriteRenderer>().sprite = imgs[0];
+            else
+                //задание картинки блоку
+                GetComponent<SpriteRenderer>().sprite = imgs[index];
+        }
+    }
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        FillImgs();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        FillImgs();
+    }
+}
